@@ -18,11 +18,18 @@
  */
 package org.apache.openjpa.meta;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import org.apache.commons.lang.StringUtils;
+import org.apache.openjpa.conf.OpenJPAConfiguration;
+import org.apache.openjpa.conf.OpenJPAConfigurationImpl;
+import org.apache.openjpa.lib.meta.*;
+import org.apache.openjpa.lib.util.Files;
+import org.apache.openjpa.lib.util.J2DoPrivHelper;
+import org.apache.openjpa.lib.util.Localizer;
+import org.apache.openjpa.util.GeneralException;
+import org.apache.openjpa.util.UserException;
+import serp.util.Strings;
+
+import java.io.*;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -30,39 +37,9 @@ import java.net.URLConnection;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
-
-import org.apache.commons.lang.StringUtils;
-import org.apache.openjpa.conf.OpenJPAConfiguration;
-import org.apache.openjpa.conf.OpenJPAConfigurationImpl;
-import org.apache.openjpa.lib.meta.ClassArgParser;
-import org.apache.openjpa.lib.meta.ClasspathMetaDataIterator;
-import org.apache.openjpa.lib.meta.FileMetaDataIterator;
-import org.apache.openjpa.lib.meta.JarFileURLMetaDataIterator;
-import org.apache.openjpa.lib.meta.MetaDataFilter;
-import org.apache.openjpa.lib.meta.MetaDataIterator;
-import org.apache.openjpa.lib.meta.MetaDataParser;
-import org.apache.openjpa.lib.meta.MetaDataSerializer;
-import org.apache.openjpa.lib.meta.ResourceMetaDataIterator;
-import org.apache.openjpa.lib.meta.URLMetaDataIterator;
-import org.apache.openjpa.lib.meta.ZipFileMetaDataIterator;
-import org.apache.openjpa.lib.meta.ZipStreamMetaDataIterator;
-import org.apache.openjpa.lib.util.Files;
-import org.apache.openjpa.lib.util.J2DoPrivHelper;
-import org.apache.openjpa.lib.util.Localizer;
-import org.apache.openjpa.util.GeneralException;
-import org.apache.openjpa.util.UserException;
-import serp.util.Strings;
 
 /**
  * Base class for factory implementations built around XML metadata files
@@ -759,25 +736,32 @@ public abstract class AbstractCFMetaDataFactory
                     } catch (PrivilegedActionException pae) {
                         throw (IOException) pae.getException();
                     }
+                } else if ("bundle".equals(url.getProtocol())) {
+                    if (log.isTraceEnabled()) {
+                        log.trace(_loc.get("scanning-osgi-bundle", url));
+                    }
+                    MetaDataIterator mdi = new OSGiBundleMetaDataIterator(url, newMetaDataFilter());
+                    scan(mdi, cparser, names, true, url);
+
                 } else {
                     // Open an InputStream from the URL and sniff for a zip header.  If it is, then this is
                     // a URL with a jar-formated InputStream, as per the JPA specification.  Otherwise, fall back
                     // to URLMetaDataIterator.
-                    BufferedInputStream is = null; 
-                    
+                    BufferedInputStream is = null;
+
                     try {
                         is = new BufferedInputStream((InputStream) AccessController.
                             doPrivileged(J2DoPrivHelper.openStreamAction(url)));
                     } catch (PrivilegedActionException pae) {
                         throw (IOException) pae.getException();
                     }
-                    
+
                     // Check for zip header magic 0x50 0x4b 0x03 0x04
                     is.mark(0);
-                    boolean zipHeaderMatch = is.read() == 0x50 && is.read() == 0x4b && is.read() == 0x03 && 
+                    boolean zipHeaderMatch = is.read() == 0x50 && is.read() == 0x4b && is.read() == 0x03 &&
                         is.read() == 0x04;
                     is.reset();
-                    
+
                     if (zipHeaderMatch) {
                         // The URL provides a Jar-formatted InputStream, consume it with ZipStreamMetaDataIterator
                         if (log.isTraceEnabled())
@@ -794,7 +778,7 @@ public abstract class AbstractCFMetaDataFactory
                             log.trace(_loc.get("scan-found-names", newNames, url));
                         names.addAll(newNames);
                         mapPersistentTypeNames(url, clss);
-                    }                    
+                    }
                 }
             }
         }
