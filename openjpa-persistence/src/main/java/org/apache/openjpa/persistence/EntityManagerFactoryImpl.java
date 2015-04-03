@@ -18,36 +18,31 @@
  */
 package org.apache.openjpa.persistence;
 
+import org.apache.commons.lang.StringUtils;
+import org.apache.openjpa.conf.OpenJPAConfiguration;
+import org.apache.openjpa.kernel.*;
+import org.apache.openjpa.lib.conf.Configurations;
+import org.apache.openjpa.lib.conf.Value;
+import org.apache.openjpa.lib.log.Log;
+import org.apache.openjpa.lib.util.Closeable;
+import org.apache.openjpa.lib.util.Localizer;
+import org.apache.openjpa.meta.MetaDataRepository;
+import org.apache.openjpa.persistence.criteria.CriteriaBuilderImpl;
+import org.apache.openjpa.persistence.criteria.OpenJPACriteriaBuilder;
+import org.apache.openjpa.persistence.meta.MetamodelImpl;
+import org.apache.openjpa.persistence.query.OpenJPAQueryBuilder;
+import org.apache.openjpa.persistence.query.QueryBuilderImpl;
+
+import javax.persistence.Cache;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.PersistenceUnitUtil;
+import javax.persistence.spi.LoadState;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-
-import javax.persistence.Cache;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.PersistenceUnitUtil;
-import javax.persistence.spi.LoadState;
-
-import org.apache.commons.lang.StringUtils;
-import org.apache.openjpa.conf.OpenJPAConfiguration;
-import org.apache.openjpa.kernel.AutoDetach;
-import org.apache.openjpa.kernel.Broker;
-import org.apache.openjpa.kernel.BrokerFactory;
-import org.apache.openjpa.kernel.DelegatingBrokerFactory;
-import org.apache.openjpa.kernel.DelegatingFetchConfiguration;
-import org.apache.openjpa.kernel.FetchConfiguration;
-import org.apache.openjpa.lib.conf.Configurations;
-import org.apache.openjpa.lib.conf.Value;
-import org.apache.openjpa.lib.log.Log;
-import org.apache.openjpa.lib.util.Closeable;
-import org.apache.openjpa.lib.util.Localizer;
-import org.apache.openjpa.persistence.criteria.CriteriaBuilderImpl;
-import org.apache.openjpa.persistence.criteria.OpenJPACriteriaBuilder;
-import org.apache.openjpa.persistence.meta.MetamodelImpl;
-import org.apache.openjpa.persistence.query.OpenJPAQueryBuilder;
-import org.apache.openjpa.persistence.query.QueryBuilderImpl;
 
 /**
  * Implementation of {@link EntityManagerFactory} that acts as a
@@ -342,8 +337,10 @@ public class EntityManagerFactoryImpl
 
     public MetamodelImpl getMetamodel() {
         if (_metaModel == null) {
-            _metaModel = new MetamodelImpl(getConfiguration()
-                .getMetaDataRepositoryInstance());
+            MetaDataRepository mdr = getConfiguration().getMetaDataRepositoryInstance();
+            mdr.setValidate(MetaDataRepository.VALIDATE_RUNTIME, true);
+            mdr.setResolve(MetaDataRepository.MODE_MAPPING_INIT, true);
+            _metaModel = new MetamodelImpl(mdr);
         }
         return _metaModel;
     }
